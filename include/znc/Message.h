@@ -61,6 +61,9 @@ class CIRCNetwork;
  * GetNick() are available, this is not true for all CMessage extensions.
  */
 class CMessage {
+  private:
+    /* To have a vptr table so sizeof is same as for subclasses with virtual */
+    virtual void Bogus() {};
   public:
     explicit CMessage(const CString& sMessage = "");
     CMessage(const CNick& Nick, const CString& sCommand,
@@ -214,24 +217,31 @@ class CTargetMessage : public CMessage {
 };
 REGISTER_ZNC_MESSAGE(CTargetMessage);
 
-class CActionMessage : public CTargetMessage {
+class CTextMessage : public CTargetMessage {
   public:
-    CString GetText() const {
+    virtual CString GetText() const { return GetParam(1); }
+    virtual void SetText(const CString& sText) { SetParam(1, sText); }
+};
+REGISTER_ZNC_MESSAGE(CTextMessage);
+
+class CActionMessage : public CTextMessage {
+  public:
+    CString GetText() const override {
         return GetParam(1).TrimPrefix_n("\001ACTION ").TrimSuffix_n("\001");
     }
-    void SetText(const CString& sText) {
+    void SetText(const CString& sText) override {
         SetParam(1, "\001ACTION " + sText + "\001");
     }
 };
 REGISTER_ZNC_MESSAGE(CActionMessage);
 
-class CCTCPMessage : public CTargetMessage {
+class CCTCPMessage : public CTextMessage {
   public:
     bool IsReply() const { return GetCommand().Equals("NOTICE"); }
-    CString GetText() const {
+    CString GetText() const override {
         return GetParam(1).TrimPrefix_n("\001").TrimSuffix_n("\001");
     }
-    void SetText(const CString& sText) { SetParam(1, "\001" + sText + "\001"); }
+    void SetText(const CString& sText) override { SetParam(1, "\001" + sText + "\001"); }
 };
 REGISTER_ZNC_MESSAGE(CCTCPMessage);
 
@@ -256,10 +266,7 @@ class CNickMessage : public CMessage {
 };
 REGISTER_ZNC_MESSAGE(CNickMessage);
 
-class CNoticeMessage : public CTargetMessage {
-  public:
-    CString GetText() const { return GetParam(1); }
-    void SetText(const CString& sText) { SetParam(1, sText); }
+class CNoticeMessage : public CTextMessage {
 };
 REGISTER_ZNC_MESSAGE(CNoticeMessage);
 
@@ -291,13 +298,6 @@ class CQuitMessage : public CMessage {
     void SetReason(const CString& sReason) { SetParam(0, sReason); }
 };
 REGISTER_ZNC_MESSAGE(CQuitMessage);
-
-class CTextMessage : public CTargetMessage {
-  public:
-    CString GetText() const { return GetParam(1); }
-    void SetText(const CString& sText) { SetParam(1, sText); }
-};
-REGISTER_ZNC_MESSAGE(CTextMessage);
 
 class CTopicMessage : public CTargetMessage {
   public:
